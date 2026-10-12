@@ -1,0 +1,31 @@
+2026-10-12 19:14:06,798 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-10-12 19:14:11,772 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/Gemini-3.5-Flash:generateContent "HTTP/1.1 400 Bad Request"
+2026-10-12 19:14:11,773 - __main__ - ERROR - APIError | code: 400 | status: INVALID_ARGUMENT | message: * GenerateContentRequest.model: unexpected model name format
+
+2026-10-12 19:14:11,774 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-10-12 19:14:13,355 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/Gemini-3.5-Flash:generateContent "HTTP/1.1 400 Bad Request"
+2026-10-12 19:14:13,364 - __main__ - ERROR - APIError | code: 400 | status: INVALID_ARGUMENT | message: * GenerateContentRequest.model: unexpected model name format
+
+2026-10-12 19:16:50,965 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-10-12 19:16:55,338 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/Gemini-3.5-flash:generateContent "HTTP/1.1 400 Bad Request"
+2026-10-12 19:16:55,339 - __main__ - ERROR - APIError | code: 400 | status: INVALID_ARGUMENT | message: * GenerateContentRequest.model: unexpected model name format
+
+2026-10-12 19:16:55,340 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-10-12 19:16:57,383 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/Gemini-3.5-flash:generateContent "HTTP/1.1 400 Bad Request"
+2026-10-12 19:16:57,384 - __main__ - ERROR - APIError | code: 400 | status: INVALID_ARGUMENT | message: * GenerateContentRequest.model: unexpected model name format
+
+2026-10-12 19:17:17,606 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-10-12 19:17:22,422 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-10-12 19:17:22,441 - __main__ - INFO - Moderated | chars: 39 | severity: none
+2026-10-12 19:17:22,442 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-10-12 19:17:27,238 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-10-12 19:17:27,239 - __main__ - INFO - Moderated | chars: 49 | severity: medium
+2026-10-12 19:30:08,091 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-10-12 19:30:10,916 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent "HTTP/1.1 503 Service Unavailable"
+2026-10-12 19:30:10,917 - moderation - WARNING - Retrying moderation._call_model in 2 seconds as it raised ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}.
+2026-10-12 19:30:12,918 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-10-12 19:30:16,622 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-10-12 19:30:16,639 - moderation - INFO - Moderated | chars: 11 | severity: low
+2026-10-12 19:30:27,703 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-10-12 19:30:31,665 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-10-12 19:30:31,666 - moderation - INFO - Moderated | chars: 17 | severity: none
