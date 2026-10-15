@@ -41,6 +41,7 @@
 }
 
 /* ---------- Base ---------- */
+[hidden] { display: none !important; }
 *, *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
@@ -317,6 +318,8 @@ dialog p + p { margin-top: 8px; }
 .field small { display: block; margin-top: 4px; font-size: 0.8rem; }
 .form-note { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: var(--info-soft); font-size: 0.9rem; }
 .form-note.is-error { background: var(--danger-soft); color: var(--danger); }
+.auth-switch { margin-top: 14px; font-size: 0.9rem; }
+.link { padding: 0; border: 0; background: none; color: var(--signal); font-weight: 600; cursor: pointer; text-decoration: underline; }
 
 /* ---------- Mobile ---------- */
 @media (max-width: 820px) {
