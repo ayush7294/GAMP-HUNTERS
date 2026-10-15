@@ -8,12 +8,11 @@
 
 const CONFIG = {
   API_BASE: "http://localhost:8000",
-  FREE_MESSAGES: 3,          // messages a guest can send before location is required
+  FREE_MESSAGES: 3,          // default only; the server value from /session replaces it
   MAX_LEN: 500,              // must match the API limit
   REQUEST_TIMEOUT_MS: 45000, // moderation can retry, so allow a generous wait
   FEED_POLL_MS: 15000,
   RADII_KM: [10, 100, 1000],
-  ACCOUNTS_ENABLED: false,   // flip to true once POST /signup exists
 };
 
 /* ---------- Small helpers ---------- */
@@ -41,13 +40,21 @@ function loadRadius() {
   return CONFIG.RADII_KM.includes(saved) ? saved : CONFIG.RADII_KM[0];
 }
 
+/* ---------- API helper (adds the guest id and login token to every request) ---------- */
+function apiFetch(path, options = {}) {
+  const headers = { "Content-Type": "application/json", "X-Device-Id": state.guestId, ...(options.headers || {}) };
+  if (state.token) headers.Authorization = "Bearer " + state.token;
+  return fetch(CONFIG.API_BASE + path, { ...options, headers });
+}
+
 /* ---------- State ---------- */
 const state = {
   guestId: loadGuestId(),
-  sent: Number(store.get("nc_sent")) || 0, // UI-side count; the server must enforce this too
+  sent: Number(store.get("nc_sent")) || 0, // cached copy; the server is the source of truth
   radius: loadRadius(),
   location: null,   // {lat, lon} rounded to ~1 km
   account: null,    // {name}
+  token: store.get("nc_token") || null,
   sending: false,
   resumeSend: false,
   feedToken: 0,
@@ -67,6 +74,8 @@ const el = {
   composer: $("#composer"), input: $("#messageInput"), counter: $("#counter"), sendBtn: $("#sendBtn"),
   locDialog: $("#locDialog"), locAllow: $("#locAllow"), locCancel: $("#locCancel"), locError: $("#locError"),
   signupDialog: $("#signupDialog"), signupForm: $("#signupForm"), signupNote: $("#signupNote"), signupCancel: $("#signupCancel"),
+  signupTitle: $("#signupTitle"), nameField: $("#nameField"), nameInput: $("#nameInput"), passwordInput: $("#passwordInput"),
+  authSubmit: $("#authSubmit"), authToggle: $("#authToggle"), authSwitchText: $("#authSwitchText"),
 };
 
 /* =====================================================================
@@ -88,7 +97,7 @@ function updateStatus() {
     el.chipSub.textContent = "Location needed";
     el.chipDot.className = "chip-dot is-warn";
   }
-  el.openSignup.hidden = Boolean(state.account);
+  el.openSignup.textContent = state.account ? "Log out" : "Sign up or log in";
 }
 
 /* =====================================================================
@@ -185,12 +194,7 @@ async function postMessage(text) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), CONFIG.REQUEST_TIMEOUT_MS);
   try {
-    return await fetch(`${CONFIG.API_BASE}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Device-Id": state.guestId },
-      body: JSON.stringify(body),
-      signal: ctrl.signal,
-    });
+    return await apiFetch("/messages", { method: "POST", body: JSON.stringify(body), signal: ctrl.signal });
   } finally {
     clearTimeout(timer);
   }
@@ -228,7 +232,8 @@ async function sendMessage() {
     }
     if (res.status === 503) {
       restoreText();
-      addNotice({ kind: "error", title: "Message check is unavailable", text: "Your message was not sent. Try again in a moment." });
+      const info = await res.json().catch(() => ({}));
+      addNotice({ kind: "error", title: "Can't send right now", text: (info.detail || "Something is temporarily unavailable.") + " Your message was not sent." });
       return;
     }
     if (res.status === 429) {
@@ -248,6 +253,7 @@ async function sendMessage() {
     }
 
     const data = await res.json();
+    if (typeof data.sent === "number") state.sent = data.sent;
     if (!data.allowed) {
       restoreText();
       addNotice({ kind: "blocked", title: "Message not sent", text: data.reason || "It breaks the content rules. Edit it and try again." });
@@ -256,7 +262,7 @@ async function sendMessage() {
 
     // Passed the check: show it straight away, without waiting for anything else.
     addOwnMessage(data.text ?? text);
-    state.sent += 1;
+    if (typeof data.sent !== "number") state.sent += 1;
     store.set("nc_sent", String(state.sent));
     updateStatus();
 
@@ -451,7 +457,7 @@ async function refreshFeed() {
   });
 
   try {
-    const res = await fetch(`${CONFIG.API_BASE}/feed?${params}`, { headers: { "X-Device-Id": state.guestId } });
+    const res = await apiFetch(`/feed?${params}`);
     if (token !== state.feedToken) return;
     if (res.status === 404) return showFeedEmpty("no-endpoint");
     if (!res.ok) throw new Error("feed " + res.status);
@@ -472,16 +478,26 @@ function startFeedPolling() {
 }
 
 /* =====================================================================
-   Sign up (form is ready; server endpoint comes in the next phase)
+   Accounts: sign up, log in, log out, restore session
    ===================================================================== */
-async function createAccount({ name, email, password }) {
-  const res = await fetch(`${CONFIG.API_BASE}/signup`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Device-Id": state.guestId },
-    body: JSON.stringify({ name, email, password }),
-  });
-  if (!res.ok) throw new Error("signup " + res.status);
-  return res.json();
+let authMode = "signup";
+
+function setAuthMode(mode) {
+  authMode = mode;
+  const signup = mode === "signup";
+  el.signupTitle.textContent = signup ? "Create an account" : "Log in";
+  el.nameField.hidden = !signup;
+  el.nameInput.required = signup;
+  el.authSubmit.textContent = signup ? "Create account" : "Log in";
+  el.authSwitchText.textContent = signup ? "Already have an account?" : "New here?";
+  el.authToggle.textContent = signup ? "Log in" : "Sign up";
+  el.passwordInput.autocomplete = signup ? "new-password" : "current-password";
+  el.signupNote.hidden = true;
+}
+
+function openAuth(mode) {
+  setAuthMode(mode);
+  el.signupDialog.showModal();
 }
 
 function showSignupNote(text, isError) {
@@ -490,27 +506,77 @@ function showSignupNote(text, isError) {
   el.signupNote.hidden = false;
 }
 
-async function handleSignup(event) {
+function authErrorText(status, signup) {
+  if (status === 409) return "That email already has an account. Log in instead.";
+  if (status === 401) return "Email or password is incorrect.";
+  if (status === 429) return "Too many attempts. Wait a minute and try again.";
+  if (status === 422) return "Check your details. The password needs at least 8 characters.";
+  if (status === 503) return "The service is temporarily unavailable. Try again in a moment.";
+  return signup ? "The account couldn't be created. Try again." : "You couldn't be logged in. Try again.";
+}
+
+async function handleAuth(event) {
   event.preventDefault();
   if (!el.signupForm.checkValidity()) {
     el.signupForm.reportValidity();
     return;
   }
-  const data = Object.fromEntries(new FormData(el.signupForm));
+  const form = Object.fromEntries(new FormData(el.signupForm));
+  const signup = authMode === "signup";
+  const payload = signup
+    ? { name: form.name, email: form.email, password: form.password }
+    : { email: form.email, password: form.password };
 
-  if (!CONFIG.ACCOUNTS_ENABLED) {
-    showSignupNote("Accounts aren't connected to a server yet, so nothing was saved. You can keep chatting as a guest.", false);
-    return;
-  }
+  el.authSubmit.disabled = true;
   try {
-    const account = await createAccount(data);
-    state.account = { name: account.name || data.name };
+    const res = await apiFetch(signup ? "/signup" : "/login", { method: "POST", body: JSON.stringify(payload) });
+    if (!res.ok) {
+      showSignupNote(authErrorText(res.status, signup), true);
+      return;
+    }
+    const data = await res.json();
+    state.token = data.token;
+    store.set("nc_token", data.token);
+    state.account = { name: data.name };
     el.signupForm.reset();
     el.signupDialog.close();
     updateStatus();
+    if (state.location) refreshFeed();
   } catch {
-    showSignupNote("The account couldn't be created. Check your details and try again.", true);
+    showSignupNote(`Can't reach the server. Make sure the API is running at ${CONFIG.API_BASE}.`, true);
+  } finally {
+    el.authSubmit.disabled = false;
   }
+}
+
+async function logout() {
+  try { await apiFetch("/logout", { method: "POST" }); } catch { /* token is dropped locally anyway */ }
+  state.token = null;
+  store.set("nc_token", "");
+  state.account = null;
+  updateStatus();
+  if (state.location) refreshFeed();
+}
+
+function setEmptyText() {
+  el.emptyText.textContent =
+    `Your first ${CONFIG.FREE_MESSAGES} messages need no sign-in and no location. After that, you'll turn on location so your messages reach the people around you.`;
+}
+
+/* Ask the server how many free messages are used and whether the saved login is still valid. */
+async function syncSession() {
+  try {
+    const res = await apiFetch("/session");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (typeof data.free_messages === "number") CONFIG.FREE_MESSAGES = data.free_messages;
+    if (typeof data.sent === "number") state.sent = data.sent;
+    store.set("nc_sent", String(state.sent));
+    state.account = data.account || null;
+    if (!data.account && state.token) { state.token = null; store.set("nc_token", ""); }
+    setEmptyText();
+    updateStatus();
+  } catch { /* server offline: keep the cached values */ }
 }
 
 /* =====================================================================
@@ -521,8 +587,7 @@ function closeOnBackdrop(dialog) {
 }
 
 function init() {
-  el.emptyText.textContent =
-    `Your first ${CONFIG.FREE_MESSAGES} messages need no sign-in and no location. After that, you'll turn on location so your messages reach the people around you.`;
+  setEmptyText();
   el.input.maxLength = CONFIG.MAX_LEN;
 
   // Composer
@@ -563,9 +628,10 @@ function init() {
   // Dialogs
   el.locAllow.addEventListener("click", enableLocation);
   el.locCancel.addEventListener("click", () => { state.resumeSend = false; el.locDialog.close(); });
-  el.openSignup.addEventListener("click", () => { el.signupNote.hidden = true; el.signupDialog.showModal(); });
+  el.openSignup.addEventListener("click", () => (state.account ? logout() : openAuth("signup")));
+  el.authToggle.addEventListener("click", () => setAuthMode(authMode === "signup" ? "login" : "signup"));
   el.signupCancel.addEventListener("click", () => el.signupDialog.close());
-  el.signupForm.addEventListener("submit", handleSignup);
+  el.signupForm.addEventListener("submit", handleAuth);
   closeOnBackdrop(el.locDialog);
   closeOnBackdrop(el.signupDialog);
 
@@ -577,6 +643,7 @@ function init() {
   updateStatus();
   updateComposerState();
   showFeedEmpty("no-location");
+  syncSession();
   restoreLocationIfAlreadyAllowed();
 }
 
