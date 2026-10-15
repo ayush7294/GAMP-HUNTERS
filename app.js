@@ -53,6 +53,7 @@ const state = {
   sent: Number(store.get("nc_sent")) || 0, // cached copy; the server is the source of truth
   radius: loadRadius(),
   location: null,   // {lat, lon} rounded to ~1 km
+  locationSource: null, // "device" (browser geolocation) or "ip" (approximate, from the network)
   account: null,    // {name}
   token: store.get("nc_token") || null,
   sending: false,
@@ -88,7 +89,7 @@ function updateStatus() {
   el.chipMain.textContent = state.account ? state.account.name : "Guest " + state.guestId.slice(-4);
 
   if (state.location) {
-    el.chipSub.textContent = "Location on";
+    el.chipSub.textContent = state.locationSource === "ip" ? "Approximate location" : "Location on";
     el.chipDot.className = "chip-dot is-on";
   } else if (left > 0) {
     el.chipSub.textContent = `${left} free message${left === 1 ? "" : "s"} left`;
@@ -314,7 +315,7 @@ function locationErrorText(err) {
   if (err.code === "unsupported") return "This browser doesn't support location.";
   if (err.code === 1) return "Location is blocked for this site. Allow it in your browser's site settings, then try again.";
   if (err.code === 2) return "Your device couldn't work out where it is. Check that location services are on.";
-  if (err.code === 3) return "Finding your location took too long. Try again.";
+  if (err.code === 3) return "Finding your location took too long, and your network location wasn't available either. Try again.";
   return "Location couldn't be turned on. Try again.";
 }
 
@@ -324,22 +325,55 @@ function openLocationDialog(resumeSend) {
   if (!el.locDialog.open) el.locDialog.showModal();
 }
 
+/* Backup for browser geolocation timeouts: the server estimates a rough location from the IP address. */
+async function requestIpLocation() {
+  const res = await apiFetch("/ip-location");
+  if (!res.ok) throw new Error("ip-location " + res.status);
+  const data = await res.json();
+  return { lat: data.lat, lon: data.lon, place: data.place || "" };
+}
+
 async function enableLocation() {
   el.locAllow.disabled = true;
+  el.locAllow.textContent = "Finding your location";
   el.locError.hidden = true;
+  let approxPlace = null; // set when the IP backup was used
   try {
-    state.location = await requestLocation();
+    try {
+      state.location = await requestLocation();
+      state.locationSource = "device";
+    } catch (err) {
+      if (err.code !== 3) throw err; // only a timeout (3) falls back; a denial (1) is respected
+      try {
+        const ip = await requestIpLocation();
+        state.location = { lat: ip.lat, lon: ip.lon };
+        state.locationSource = "ip";
+        approxPlace = ip.place || "your area";
+      } catch {
+        throw err; // backup failed too: show the original timeout message
+      }
+    }
     el.locDialog.close();
     updateStatus();
     refreshFeed();
     startFeedPolling();
     if (state.resumeSend && el.input.value.trim()) sendMessage();
+    if (approxPlace) {
+      addNotice({
+        kind: "info",
+        title: "Using your approximate location",
+        text: `Your device was slow to answer, so we used your network instead (near ${approxPlace}). It can be off by many kilometres.`,
+        actionLabel: "Try precise location",
+        onAction: () => openLocationDialog(false),
+      });
+    }
   } catch (err) {
     el.locError.textContent = locationErrorText(err);
     el.locError.hidden = false;
   } finally {
     state.resumeSend = false;
     el.locAllow.disabled = false;
+    el.locAllow.textContent = "Turn on location";
   }
 }
 
@@ -348,6 +382,7 @@ async function restoreLocationIfAlreadyAllowed() {
     const perm = await navigator.permissions?.query({ name: "geolocation" });
     if (perm && perm.state === "granted") {
       state.location = await requestLocation();
+      state.locationSource = "device";
       updateStatus();
       refreshFeed();
       startFeedPolling();
