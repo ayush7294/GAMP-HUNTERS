@@ -29,7 +29,7 @@
         <span class="chip-sub" id="chipSub"></span>
       </div>
 
-      <button type="button" class="btn btn-quiet" id="openSignup">Sign up</button>
+      <button type="button" class="btn btn-quiet" id="openSignup">Sign up or log in</button>
     </header>
 
     <!-- Mobile tabs -->
@@ -114,9 +114,9 @@
     <h2 id="signupTitle">Create an account</h2>
     <p class="muted">Optional. An account keeps your chats under your name instead of a guest number.</p>
     <form id="signupForm" novalidate>
-      <label class="field">
+      <label class="field" id="nameField">
         <span>Name</span>
-        <input type="text" name="name" autocomplete="name" required minlength="2" maxlength="40">
+        <input type="text" name="name" id="nameInput" autocomplete="name" required minlength="2" maxlength="40">
       </label>
       <label class="field">
         <span>Email</span>
@@ -124,13 +124,14 @@
       </label>
       <label class="field">
         <span>Password</span>
-        <input type="password" name="password" autocomplete="new-password" required minlength="8">
+        <input type="password" name="password" id="passwordInput" autocomplete="new-password" required minlength="8">
         <small class="muted">At least 8 characters</small>
       </label>
       <p class="form-note" id="signupNote" role="status" hidden></p>
+      <p class="auth-switch muted"><span id="authSwitchText">Already have an account?</span> <button type="button" class="link" id="authToggle">Log in</button></p>
       <div class="dialog-actions">
         <button type="button" class="btn btn-quiet" id="signupCancel">Cancel</button>
-        <button type="submit" class="btn btn-primary">Create account</button>
+        <button type="submit" class="btn btn-primary" id="authSubmit">Create account</button>
       </div>
     </form>
   </dialog>
