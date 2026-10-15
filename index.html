@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Nearby Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app" id="app" data-view="chat">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="16" cy="16" r="14" />
+          <circle cx="16" cy="16" r="9" />
+          <circle cx="16" cy="16" r="4" class="brand-core" />
+        </svg>
+        <span class="brand-name">Nearby Chat</span>
+      </div>
+
+      <div class="chip" id="statusChip" aria-live="polite">
+        <span class="chip-dot" id="chipDot" aria-hidden="true"></span>
+        <span class="chip-main" id="chipMain"></span>
+        <span class="chip-sub" id="chipSub"></span>
+      </div>
+
+      <button type="button" class="btn btn-quiet" id="openSignup">Sign up</button>
+    </header>
+
+    <!-- Mobile tabs -->
+    <nav class="tabs" aria-label="Views">
+      <button type="button" class="tab is-active" data-view="chat" aria-pressed="true">Your chat</button>
+      <button type="button" class="tab" data-view="nearby" aria-pressed="false">Nearby</button>
+    </nav>
+
+    <!-- Left: nearby messages -->
+    <aside class="nearby" id="nearbyPane" aria-label="Messages near you">
+      <div class="nearby-head">
+        <h2>Nearby</h2>
+        <p id="radiusSummary" class="muted">Messages from within 10 km</p>
+
+        <div class="radius">
+          <svg class="dial" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="ring" id="ring-1000" cx="60" cy="60" r="56" />
+            <circle class="ring" id="ring-100"  cx="60" cy="60" r="37" />
+            <circle class="ring" id="ring-10"   cx="60" cy="60" r="18" />
+            <circle class="you" cx="60" cy="60" r="4" />
+          </svg>
+
+          <div class="radius-options" role="radiogroup" aria-label="Distance">
+            <button type="button" class="radius-opt" role="radio" data-km="10" aria-checked="false">
+              <span class="radius-km">10 km</span>
+              <span class="radius-desc">Your neighbourhood</span>
+            </button>
+            <button type="button" class="radius-opt" role="radio" data-km="100" aria-checked="false">
+              <span class="radius-km">100 km</span>
+              <span class="radius-desc">City and surroundings</span>
+            </button>
+            <button type="button" class="radius-opt" role="radio" data-km="1000" aria-checked="false">
+              <span class="radius-km">1,000 km</span>
+              <span class="radius-desc">Your region</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="feed-wrap">
+        <ul class="feed" id="feed" role="list"></ul>
+        <div class="feed-empty" id="feedEmpty" hidden></div>
+      </div>
+    </aside>
+
+    <!-- Right: your conversation -->
+    <main class="chat" id="chatPane">
+      <div class="log" id="log" role="log" aria-live="polite" aria-label="Your messages" tabindex="0">
+        <div class="empty" id="emptyState">
+          <h2>Talk to people near you</h2>
+          <p id="emptyText"></p>
+        </div>
+      </div>
+
+      <form class="composer" id="composer" autocomplete="off">
+        <div class="composer-box">
+          <label for="messageInput" class="sr-only">Message</label>
+          <textarea id="messageInput" rows="1" maxlength="500" placeholder="Write a message"></textarea>
+          <span class="counter" id="counter" aria-hidden="true">0/500</span>
+          <button type="submit" class="send" id="sendBtn" aria-label="Send message" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12 2-12 2z"/></svg>
+          </button>
+        </div>
+      </form>
+    </main>
+  </div>
+
+  <!-- Location dialog -->
+  <dialog id="locDialog" aria-labelledby="locTitle">
+    <h2 id="locTitle">Turn on location to keep chatting</h2>
+    <p>Your free messages are used up. Share your location so your messages reach the people around you and you can see theirs.</p>
+    <p class="muted">Your browser will ask for permission. You can turn it off at any time in site settings.</p>
+    <p class="form-note is-error" id="locError" role="alert" hidden></p>
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-quiet" id="locCancel">Not now</button>
+      <button type="button" class="btn btn-primary" id="locAllow">Turn on location</button>
+    </div>
+  </dialog>
+
+  <!-- Sign-up dialog -->
+  <dialog id="signupDialog" aria-labelledby="signupTitle">
+    <h2 id="signupTitle">Create an account</h2>
+    <p class="muted">Optional. An account keeps your chats under your name instead of a guest number.</p>
+    <form id="signupForm" novalidate>
+      <label class="field">
+        <span>Name</span>
+        <input type="text" name="name" autocomplete="name" required minlength="2" maxlength="40">
+      </label>
+      <label class="field">
+        <span>Email</span>
+        <input type="email" name="email" autocomplete="email" required>
+      </label>
+      <label class="field">
+        <span>Password</span>
+        <input type="password" name="password" autocomplete="new-password" required minlength="8">
+        <small class="muted">At least 8 characters</small>
+      </label>
+      <p class="form-note" id="signupNote" role="status" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-quiet" id="signupCancel">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create account</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
