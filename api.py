@@ -9,7 +9,9 @@ Logs go to log/api.log (rotating) and the console. Message text, emails and
 passwords are never logged.
 """
 import asyncio
+import ipaddress
 import logging
+import os
 import re
 import time
 import uuid
@@ -25,6 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 import db  # loads .env and checks DATABASE_URL
+import iplocation
 from moderation import moderate_text
 
 # ---------------- Config ----------------
@@ -34,6 +37,10 @@ ALLOWED_RADII_KM = {10, 100, 1000}
 ALLOWED_ORIGINS = ["*"]              # TODO: put your real UI address here before going public
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 DEVICE_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
+# IP-location backup. Behind a reverse proxy (Render, Nginx, Cloudflare...) set TRUST_PROXY_HEADERS=true.
+TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "").lower() in ("1", "true", "yes")
+# Set to true to allow LAN/Docker addresses (192.168.x.x, 172.17.x.x) during local testing.
+IP_LOCATION_ALLOW_PRIVATE = os.getenv("IP_LOCATION_ALLOW_PRIVATE", "").lower() in ("1", "true", "yes")
 
 # ---------------- Logging ----------------
 Path("log").mkdir(parents=True, exist_ok=True)
